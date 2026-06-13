@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deeksha STEM Space Academy</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    color: #fff;
+    background: radial-gradient(circle at top, #0a2240 0%, #000 60%);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+}
+
+#ui {
+    position: relative;
+    text-align: center;
+    padding: 22px 16px 40px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+h1 {
+    margin: 0 0 12px;
+    font-size: 2rem;
+    text-shadow: 0 0 14px rgba(0,255,255,0.7);
+}
+
+#stats {
+    color: #7efcff;
+    margin-bottom: 16px;
+    font-size: 0.98rem;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+input,
+select {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    color: white;
+    min-width: 130px;
+    outline: none;
+    box-shadow: inset 0 0 10px rgba(255,255,255,0.06);
+}
+
+button {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:hover {
+    transform: translateY(-1px);
+}
+
+#addBtn {
+    background: #00f0ff;
+    color: #01121e;
+    font-weight: bold;
+}
+
+.planetBtn {
+    margin: 4px 3px;
+    padding: 8px 10px;
+    border-radius: 22px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid #33f5ff;
+    color: #f1f9ff;
+    box-shadow: 0 0 10px rgba(51,245,255,0.25);
+}
+
+.task {
+    margin: 10px auto;
+    padding: 14px 14px 12px;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+    text-align: left;
+    box-shadow: 0 0 18px rgba(0,255,255,0.06);
+}
+
+.task strong {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.task small {
+    display: block;
+    margin-bottom: 10px;
+    color: #9ef7ff;
+}
+
+.task .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.task button {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.9rem;
+}
+
+.task.completed {
+    border-color: #7cff7a;
+    box-shadow: 0 0 18px rgba(80,255,120,0.22);
+}
+
+.task.not-completed {
+    border-color: #ff5e72;
+    box-shadow: 0 0 18px rgba(255,94,114,0.22);
+}
+
+#aiBox {
+    margin: 18px auto 0;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(0,0,0,0.54);
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid #00f0ff;
+    color: #d7ffff;
+    line-height: 1.5;
+    text-align: left;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+    <h1>🏫 Deeksha STEM Space Academy</h1>
+
+    <div id="stats">
+        ⭐ XP: <span id="xp">0</span> | 🪙 Coins: <span id="coins">0</span>
+    </div>
+
+    <div class="controls">
+        <input id="taskInput" placeholder="Enter homework task" autocomplete="off">
+        <select id="subjectSelect"></select>
+        <button id="addBtn">Add Homework</button>
+    </div>
+
+    <div id="planetBar"></div>
+    <div id="taskList"></div>
+
+    <div id="aiBox">🧠 AI: Add homework to begin tracking</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let xp = parseInt(localStorage.getItem("xp")) || 0;
+let coins = parseInt(localStorage.getItem("coins")) || 0;
+
+const subjects = [
+    "LBD","Science","English","Kannada",
+    "Hindi","Art","Maths","Social Science",
+    "Computer","EVS"
+];
+
+function save() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    localStorage.setItem("xp", xp);
+    localStorage.setItem("coins", coins);
+}
+
+function updateStats() {
+    document.getElementById("xp").innerText = xp;
+    document.getElementById("coins").innerText = coins;
+}
+
+function updateAI() {
+    const pending = tasks.filter(t => t.status === "not").length;
+    const completed = tasks.filter(t => t.status === "completed").length;
+    const nextSubject = tasks.find(t => t.status === "not")?.subject || "—";
+
+    document.getElementById("aiBox").innerHTML =
+        `🧠 AI REPORT<br>
+         📚 Pending: ${pending}<br>
+         ✅ Completed: ${completed}<br>
+         🔔 Next subject: ${nextSubject}<br>
+         🚀 Keep going to earn XP & Coins!`;
+}
+
+function renderPlanets() {
+    const bar = document.getElementById("planetBar");
+    bar.innerHTML = "";
+
+    subjects.forEach(subject => {
+        const button = document.createElement("button");
+        button.className = "planetBtn";
+        button.innerText = "🪐 " + subject;
+        button.onclick = () => render(subject);
+        bar.appendChild(button);
+    });
+
+    const allButton = document.createElement("button");
+    allButton.className = "planetBtn";
+    allButton.innerText = "🌍 All";
+    allButton.onclick = () => render();
+    bar.insertBefore(allButton, bar.firstChild);
+}
+
+function render(filter = null) {
+    const list = document.getElementById("taskList");
+    list.innerHTML = "";
+
+    const visible = tasks.filter(task => !filter || task.subject === filter);
+
+    if (visible.length === 0) {
+        list.innerHTML = '<div class="task not-completed"><strong>No homework found</strong><small>Choose a subject or add a task first.</small></div>';
+    }
+
+    visible.forEach((task, index) => {
+        const card = document.createElement("div");
+        card.className = "task " + (task.status === "completed" ? "completed" : "not-completed");
+
+        card.innerHTML = `
+            <strong>📘 ${task.subject}</strong>
+            <small>${task.text}</small>
+            <div class="buttons">
+                <button onclick="markDone(${index})">Completed</button>
+                <button onclick="markNotDone(${index})">Not Done</button>
+                <button onclick="removeTask(${index})">Delete</button>
+            </div>
+        `;
+
+        list.appendChild(card);
+    });
+
+    updateAI();
+}
+
+function addTask() {
+    const text = document.getElementById("taskInput").value.trim();
+    const subject = document.getElementById("subjectSelect").value;
+
+    if (!text) return;
+
+    tasks.push({
+        text,
+        subject,
+        status: "not"
+    });
+
+    document.getElementById("taskInput").value = "";
+    save();
+    updateStats();
+    render();
+}
+
+function markDone(index) {
+    if (tasks[index].status !== "completed") {
+        xp += 10;
+        coins += 5;
+    }
+    tasks[index].status = "completed";
+    save();
+    updateStats();
+    render();
+}
+
+function markNotDone(index) {
+    tasks[index].status = "not";
+    save();
+    render();
+}
+
+function removeTask(index) {
+    tasks.splice(index, 1);
+    save();
+    render();
+}
+
+function populateSubjects() {
+    const select = document.getElementById("subjectSelect");
+    select.innerHTML = subjects.map(subject => `<option>${subject}</option>`).join("");
+}
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const geometry = new THREE.BufferGeometry();
+const positions = new Float32Array(3000 * 3);
+for (let i = 0; i < positions.length; i++) {
+    positions[i] = (Math.random() - 0.5) * 2000;
+}
+geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+
+const stars = new THREE.Points(
+    geometry,
+    new THREE.PointsMaterial({ color: 0xffffff, size: 1 })
+);
+scene.add(stars);
+camera.position.z = 5;
+
+window.addEventListener("mousemove", (e) => {
+    camera.rotation.y = (e.clientX / innerWidth - 0.5) * 0.4;
+    camera.rotation.x = (e.clientY / innerHeight - 0.5) * 0.4;
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    stars.rotation.y += 0.0008;
+    renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById("addBtn").onclick = addTask;
+document.getElementById("taskInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") addTask();
+});
+
+populateSubjects();
+updateStats();
+renderPlanets();
+render();
+</script>
+
+</body>
+</html>
